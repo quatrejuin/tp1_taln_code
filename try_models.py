@@ -46,23 +46,30 @@ print("Time:", time.time() - start)
 # print("Time:", time.time() - start)
 
 # Bigram
-features_set_bigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0]}, lemma == forme) for index, (lemma, forme) in enumerate(fl_pairs[1:])]
+# Because the Naive Bayes assume the features are independent. So if split the lemma and lemma-1, it's not really bigram at all.
+# features_set_bigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0]}, lemma == forme) for index, (lemma, forme) in enumerate(fl_pairs[1:])]
+features_set_bigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0], "bigram": (fl_pairs[index][0], lemma)}, lemma == forme) for index, (lemma, forme) in enumerate(fl_pairs[1:])]
 train_set = features_set_bigram[:int(len(features_set_bigram)*0.9)]
 test_set = features_set_bigram[len(train_set):]
 
 classifier = nltk.NaiveBayesClassifier.train(train_set)
 
 print("Classifier accuracy percent (Bigram):", (nltk.classify.accuracy(classifier, test_set))*100)
+classifier.show_most_informative_features(5)
+
 print("Time:", time.time() - start)
 
 # Trigram
-features_set_trigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0], "lemma-2": fl_pairs[index-1][0]}, lemma==forme) for index, (lemma, forme) in enumerate(fl_pairs[2:])]
+# features_set_trigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0], "lemma-2": fl_pairs[index-1][0]}, lemma==forme) for index, (lemma, forme) in enumerate(fl_pairs[2:])]
+features_set_trigram = [({"lemma": lemma, "trigram": (fl_pairs[index-1][0], fl_pairs[index][0], lemma)}, lemma==forme) for index, (lemma, forme) in enumerate(fl_pairs[2:])]
 train_set = features_set_trigram[:int(len(features_set_trigram)*0.9)]
 test_set = features_set_trigram[len(train_set):]
 
 classifier = nltk.NaiveBayesClassifier.train(train_set)
 
 print("Classifier accuracy percent (Trigram):", (nltk.classify.accuracy(classifier, test_set))*100)
+classifier.show_most_informative_features(5)
+
 print("Time:", time.time() - start)
 
 
