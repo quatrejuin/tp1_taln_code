@@ -9,7 +9,7 @@ import json    # For print dictionary
 
 
 # UTF8_REP_CHAR = u"\uFFFD"        # Unicode U+FFFD   (utf-8 code ef bf bd)
-data_path_dev = '../data/dev/'
+data_path_dev = '/Users/jason.wu/Desktop/IFT6285-NLP/TP1/data/dev/'
 
 
 # Input a line
@@ -91,7 +91,9 @@ def analyze_single_file(fname, fixflag=False):
     print("How many kinds of first byte error non-utf8")
     print(sorted(list(nltk.Index([(hex(y), x) for x, y in list_non_utf8]))))
 
+    print("---")
     # Start Lemma statistics
+    print("Total Terms: {}".format(len(fl_pairs)))
     idx = nltk.Index(fl_pairs)
     list_lemma_freq = [(x, len(idx[x])) for x in idx]
     list_lemma_freq.sort(key=lambda x: x[1], reverse=True)
@@ -101,9 +103,12 @@ def analyze_single_file(fname, fixflag=False):
     print(sum([x[1] for x in list_lemma_freq[:topn]])/len(fl_pairs))    # Top20 40.5% Top100 53%
 
     idx_set = nltk.Index(set(fl_pairs))
-    list_form_uni = [x for x in idx_set if len(idx[x])==1]
+    list_form_uni = [x for x in idx_set if len(idx[x]) == 1]
     print("Lemma just has one form ratio:")  # About 50%
     print(len(list_form_uni)/len(idx_set))
+
+    print("Lemma et form est identical:")
+    print(len([x for (x, y) in fl_pairs if x == y])/len(fl_pairs))
 
     cfd = nltk.ConditionalFreqDist(fl_pairs)
     print("Show lemma 'be' show in which form and how many times for each")
@@ -112,11 +117,13 @@ def analyze_single_file(fname, fixflag=False):
     list_lemma_forme_freq = [(x,len(cfd[x])) for index,x in enumerate(cfd)]
     list_lemma_forme_freq.sort(key=lambda x: x[1], reverse=True)
 
-    pdb.set_trace()
+    return fl_pairs
+    # pdb.set_trace()
 
-path = data_path_dev+'dev-24'
-list_of_file = sorted(glob.glob(path))
-for file in list_of_file:
-    analyze_single_file(file)
+
+# path = data_path_dev + 'dev-24'
+# list_of_file = sorted(glob.glob(path))
+# for file in list_of_file:
+#     analyze_single_file(file)
 
 
