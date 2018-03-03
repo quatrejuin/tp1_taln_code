@@ -6,10 +6,11 @@ import re
 import glob
 import pdb
 import json    # For print dictionary
+import sys
 
-
-# UTF8_REP_CHAR = u"\uFFFD"        # Unicode U+FFFD   (utf-8 code ef bf bd)
-data_path_dev = '/Users/jason.wu/Desktop/IFT6285-NLP/TP1/data/dev/'
+if len(sys.argv) > 1:
+    # Define the data path
+    data_path_dev = sys.argv[1]
 
 
 # Input a line
