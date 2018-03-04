@@ -3,6 +3,15 @@ import glob
 import pdb
 import nltk
 import time
+from copy import copy
+
+# Calculate the accuracy by giving the classes result list.
+def cal_accuracy(class_r, test_set):
+    correct = 0
+    for index, c in enumerate(class_r):
+        if c == test_set[index][1]:
+            correct += 1
+    return correct/len(class_r)
 
 
 path = analyze.data_path_dev + 'dev-24'
@@ -18,6 +27,26 @@ list_lemma_form = fl_pairs
 list_lemma = [l for l, f in list_lemma_form]
 
 start = time.time()
+
+# Simple max Freq
+features_set = fl_pairs
+train_set = features_set[:int(len(features_set)*0.9)]
+test_set = features_set[len(train_set):]
+cfd = nltk.ConditionalFreqDist(train_set)
+pred_class = []
+for p in test_set:
+    if p[0] in cfd:
+        pred_class += [cfd[p[0]].max()]
+    else:
+        # If it exist pas, we use the lemme as the form
+        pred_class += [p[0]]
+
+print("Classifier accuracy percent (Simple max Freq):", cal_accuracy(pred_class, test_set)*100)  # About 78%
+
+
+# Navive Bayes
+
+
 
 # POS tag
 #list_lemma_tag = nltk.pos_tag(list_lemma)
@@ -76,16 +105,8 @@ print("Time:", time.time() - start)
 end = time.time()
 print("Total time in seconds:", end - start)
 
+
 pdb.set_trace()
-
-
-# Calculate the accuracy by giving the classes result list.
-def cal_accuracy(class_r, test_set):
-    correct = 0
-    for index,c in enumerate(class_r):
-        if c == test_set[index][1]:
-            correct += 1
-    return correct/len(class_r)
 
 #test_data =
 #test_lemma =

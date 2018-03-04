@@ -109,13 +109,13 @@ def analyze_single_file(fname, fixflag=False):
     print(len(list_form_uni)/len(idx_set))
 
     print("Lemma et form est identical:")
-    print(len([x for (x, y) in fl_pairs if x == y])/len(fl_pairs))
+    print(len([x for (x, y) in fl_pairs if x == y])/len(fl_pairs))  # About 68%
 
     cfd = nltk.ConditionalFreqDist(fl_pairs)
     print("Show lemma 'be' show in which form and how many times for each")
     print(json.dumps(cfd['be'], ensure_ascii=False))
 
-    list_lemma_forme_freq = [(x,len(cfd[x])) for index,x in enumerate(cfd)]
+    list_lemma_forme_freq = [(x, len(cfd[x])) for index, x in enumerate(cfd)]
     list_lemma_forme_freq.sort(key=lambda x: x[1], reverse=True)
 
     return fl_pairs
