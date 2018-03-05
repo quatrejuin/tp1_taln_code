@@ -44,8 +44,36 @@ for p in test_set:
 print("Classifier accuracy percent (Simple max Freq):", cal_accuracy(pred_class, test_set)*100)  # About 78%
 
 
-# Navive Bayes
+# Naive Bayes Unigram  78%
+features_set = fl_pairs
+train_set = features_set[:int(len(features_set)*0.9)]
+test_set = features_set[len(train_set):]
+train_idx = nltk.Index(train_set)
 
+
+# Dictionary for all the features of each lemma we have seen.
+dict_features_set = {}
+# Dictionary for all the classifier of each lemma we have seen.
+dict_classifier = {}
+
+# Train for each lemma.
+for lemma in train_idx:
+    dict_features_set[lemma] = [({"lemma": lemma}, f) for f in train_idx[lemma]]
+    train_set_w = dict_features_set[lemma]
+    dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
+
+list_result = []
+# Test the data, do the prediction
+for lemma, form in test_set:
+    if lemma in dict_classifier:
+        list_result += [dict_classifier[lemma].classify({"lemma": lemma})]
+    else:
+        list_result += [lemma]
+
+print("Classifier accuracy percent (Naive Bayes Unigram):", cal_accuracy(list_result, test_set)*100)
+
+pdb.set_trace()
+# Naive Bayes Bigram
 
 
 # POS tag
