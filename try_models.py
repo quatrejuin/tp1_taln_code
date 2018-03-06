@@ -3,6 +3,7 @@ import glob
 import pdb
 import nltk
 import time
+from collections import deque
 from copy import copy
 
 # Calculate the accuracy by giving the classes result list.
@@ -21,8 +22,9 @@ fl_pairs = []
 for file in list_of_file:
     fl_pairs += analyze.analyze_single_file(file)
 
-#list_lemma_form = list(filter(lambda l: l[0].isalpha(), fl_pairs))
 list_lemma_form = fl_pairs
+#list_lemma_form = list(filter(lambda l: l[0].isalpha(), fl_pairs))
+
 
 list_lemma = [l for l, f in list_lemma_form]
 
@@ -44,7 +46,7 @@ for p in test_set:
 print("Classifier accuracy percent (Simple max Freq):", cal_accuracy(pred_class, test_set)*100)  # About 78%
 
 
-# Naive Bayes Unigram  78%
+# Naive Bayes Unigram
 features_set = fl_pairs
 train_set = features_set[:int(len(features_set)*0.9)]
 test_set = features_set[len(train_set):]
@@ -72,9 +74,46 @@ for lemma, form in test_set:
 
 print("Classifier accuracy percent (Naive Bayes Unigram):", cal_accuracy(list_result, test_set)*100)
 
-pdb.set_trace()
-# Naive Bayes Bigram
 
+# Naive Bayes Bigram
+features_set = fl_pairs
+train_set = features_set[:int(len(features_set)*0.9)]
+test_set = features_set[len(train_set):]
+
+# Dictionary for all the features of each lemma we have seen.
+dict_features_set = {}
+# Dictionary for all the classifier of each lemma we have seen.
+dict_classifier = {}
+
+# Prepare the bigram feature set
+# Gram Window size 2
+gram_wnd = deque(["", ""], maxlen=2)
+gram_wnd.append(train_set[1])
+for (lemma, form) in train_set[1:]:
+    if not lemma in dict_features_set:
+        dict_features_set[lemma] = []
+    gram_wnd.append(lemma)
+    dict_features_set[lemma] += [({"lemma": lemma, "bigram": (gram_wnd[0], gram_wnd[1])}, form)]
+
+# Train for each lemma in the feature set
+for lemma in dict_features_set:
+    train_set_w = dict_features_set[lemma]
+    dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
+
+list_result = []
+# Test the data, do the prediction
+gram_wnd = deque(["", ""], maxlen=2)
+for lemma, form in test_set:
+    gram_wnd.append(lemma)
+    if lemma in dict_classifier:
+        list_result += [dict_classifier[lemma].classify({"lemma": lemma, "bigram": (gram_wnd[0], gram_wnd[1])})]
+    else:
+        list_result += [lemma]
+
+print("Classifier accuracy percent (Naive Bayes Bigram):", cal_accuracy(list_result, test_set)*100)
+
+
+pdb.set_trace()
 
 # POS tag
 #list_lemma_tag = nltk.pos_tag(list_lemma)
