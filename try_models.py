@@ -15,6 +15,81 @@ def cal_accuracy(class_r, test_set):
     return correct/len(class_r)
 
 
+# Naive Bayes N-gram
+def try_naive_bayes_ngram(ngram, train_set, test_set):
+    # Dictionary for all the features of each lemma we have seen.
+    dict_features_set = {}
+    # Dictionary for all the classifier of each lemma we have seen.
+    dict_classifier = {}
+    # Prepare the bigram feature set
+    # Gram Window size ngram
+    gram_wnd = deque([""] * ngram, maxlen=ngram)
+    gram_wnd.extend(train_set[:ngram - 1])
+    for (lemma, form) in train_set[ngram - 1:]:
+        if not lemma in dict_features_set:
+            dict_features_set[lemma] = []
+        gram_wnd.append(lemma)
+        dict_features_set[lemma] += [({"lemma": lemma, "ngram": tuple(gram_wnd)}, form)]
+    # Train for each lemma in the feature set
+    for lemma in dict_features_set:
+        train_set_w = dict_features_set[lemma]
+        dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
+    list_result = []
+    # Test the data, do the prediction
+    gram_wnd = deque([""] * ngram, maxlen=ngram)
+    gram_wnd.extend(test_set[:ngram - 1])
+    for lemma, form in test_set:
+        gram_wnd.append(lemma)
+        if lemma in dict_classifier:
+            list_result += [dict_classifier[lemma].classify({"lemma": lemma, "ngram": tuple(gram_wnd)})]
+        else:
+            list_result += [lemma]
+    print("Classifier accuracy percent (Naive Bayes N-gram: n={}): {}".format(ngram, cal_accuracy(list_result,
+                                                                                                  test_set) * 100))
+
+
+# Simple max Freq
+def try_simple_max_freq(train_set, test_set):
+    cfd = nltk.ConditionalFreqDist(train_set)
+    pred_class = []
+    for p in test_set:
+        if p[0] in cfd:
+            pred_class += [cfd[p[0]].max()]
+        else:
+            # If it exist pas, we use the lemme as the form
+            pred_class += [p[0]]
+    print("Classifier accuracy percent (Simple max Freq):", cal_accuracy(pred_class, test_set) * 100)  # About 78%
+
+
+
+# Ngram to predict wether the lemma equals to form
+def try_le2f_ngram(ngram, train_set, test_set):
+    gram_wnd = deque([""] * ngram, maxlen=ngram)
+    gram_wnd.extend(train_set[:ngram - 1])
+    train_set_f = []
+    for (lemma, forme) in train_set[ngram-1:]:
+        gram_wnd.append(lemma)
+        train_set_f += [({"lemma": lemma, "ngram": tuple(gram_wnd)}, lemma == forme)]
+    _classifier = nltk.NaiveBayesClassifier.train(train_set_f)
+    gram_wnd = deque([""] * ngram, maxlen=ngram)
+    gram_wnd.extend(test_set[:ngram - 1])
+    test_set_f = []
+    for (lemma, forme) in test_set[ngram-1:]:
+        gram_wnd.append(lemma)
+        test_set_f += [({"lemma": lemma, "ngram": tuple(gram_wnd)}, lemma == forme)]
+    print("Classifier accuracy percent Ngram (n={}) lemma = form : {}".format(
+        ngram, nltk.classify.accuracy(_classifier, test_set_f)*100))
+    _classifier.show_most_informative_features(5)
+
+
+# Split train and test data for the given raio
+def split_train_test(_features_set, ratio = 0.9):
+    _train_set = _features_set[:int(len(_features_set) * ratio)]
+    _test_set = _features_set[len(_train_set):]
+    return _train_set, _test_set
+
+
+
 path = analyze.data_path_dev + 'dev-24'
 list_of_file = sorted(glob.glob(path))
 fl_pairs = []
@@ -22,151 +97,34 @@ fl_pairs = []
 for file in list_of_file:
     fl_pairs += analyze.analyze_single_file(file)
 
-list_lemma_form = fl_pairs
-#list_lemma_form = list(filter(lambda l: l[0].isalpha(), fl_pairs))
-
-
-list_lemma = [l for l, f in list_lemma_form]
-
 start = time.time()
 
-# Simple max Freq
+
 features_set = fl_pairs
-train_set = features_set[:int(len(features_set)*0.9)]
-test_set = features_set[len(train_set):]
-cfd = nltk.ConditionalFreqDist(train_set)
-pred_class = []
-for p in test_set:
-    if p[0] in cfd:
-        pred_class += [cfd[p[0]].max()]
-    else:
-        # If it exist pas, we use the lemme as the form
-        pred_class += [p[0]]
+train_set, test_set = split_train_test(features_set)
 
-print("Classifier accuracy percent (Simple max Freq):", cal_accuracy(pred_class, test_set)*100)  # About 78%
 
+# Start predict lemma = equals
+# Ngram to predict wether the lemma equals to form n=2
+try_le2f_ngram(2, train_set, test_set)
+# Ngram to predict wether the lemma equals to form n=3
+try_le2f_ngram(3, train_set, test_set)
+# End predict lemma = equals
+
+print("---")
+
+# Simple max Freq Unigram
+try_simple_max_freq(train_set, test_set)
 
 # Naive Bayes Unigram
-features_set = fl_pairs
-train_set = features_set[:int(len(features_set)*0.9)]
-test_set = features_set[len(train_set):]
-train_idx = nltk.Index(train_set)
-
-
-# Dictionary for all the features of each lemma we have seen.
-dict_features_set = {}
-# Dictionary for all the classifier of each lemma we have seen.
-dict_classifier = {}
-
-# Train for each lemma.
-for lemma in train_idx:
-    dict_features_set[lemma] = [({"lemma": lemma}, f) for f in train_idx[lemma]]
-    train_set_w = dict_features_set[lemma]
-    dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
-
-list_result = []
-# Test the data, do the prediction
-for lemma, form in test_set:
-    if lemma in dict_classifier:
-        list_result += [dict_classifier[lemma].classify({"lemma": lemma})]
-    else:
-        list_result += [lemma]
-
-print("Classifier accuracy percent (Naive Bayes Unigram):", cal_accuracy(list_result, test_set)*100)
-
-
+try_naive_bayes_ngram(1, train_set, test_set)
 # Naive Bayes Bigram
-features_set = fl_pairs
-train_set = features_set[:int(len(features_set)*0.9)]
-test_set = features_set[len(train_set):]
+try_naive_bayes_ngram(2, train_set, test_set)
+# Naive Bayes N-gram n=3
+try_naive_bayes_ngram(3, train_set, test_set)
+# Naive Bayes N-gram n=4
+try_naive_bayes_ngram(4, train_set, test_set)
 
-# Dictionary for all the features of each lemma we have seen.
-dict_features_set = {}
-# Dictionary for all the classifier of each lemma we have seen.
-dict_classifier = {}
-
-# Prepare the bigram feature set
-# Gram Window size 2
-gram_wnd = deque(["", ""], maxlen=2)
-gram_wnd.append(train_set[1])
-for (lemma, form) in train_set[1:]:
-    if not lemma in dict_features_set:
-        dict_features_set[lemma] = []
-    gram_wnd.append(lemma)
-    dict_features_set[lemma] += [({"lemma": lemma, "bigram": (gram_wnd[0], gram_wnd[1])}, form)]
-
-# Train for each lemma in the feature set
-for lemma in dict_features_set:
-    train_set_w = dict_features_set[lemma]
-    dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
-
-list_result = []
-# Test the data, do the prediction
-gram_wnd = deque(["", ""], maxlen=2)
-for lemma, form in test_set:
-    gram_wnd.append(lemma)
-    if lemma in dict_classifier:
-        list_result += [dict_classifier[lemma].classify({"lemma": lemma, "bigram": (gram_wnd[0], gram_wnd[1])})]
-    else:
-        list_result += [lemma]
-
-print("Classifier accuracy percent (Naive Bayes Bigram):", cal_accuracy(list_result, test_set)*100)
-
-
-pdb.set_trace()
-
-# POS tag
-#list_lemma_tag = nltk.pos_tag(list_lemma)
-
-# Unigram
-features_set = [({"lemma": lf[0]}, lf[0] == lf[1]) for lf in list_lemma_form]
-
-
-#
-train_set = features_set[:int(len(features_set)*0.9)]
-test_set = features_set[len(train_set):]
-
-classifier = nltk.NaiveBayesClassifier.train(train_set)
-
-print("Classifier accuracy percent:", (nltk.classify.accuracy(classifier, test_set))*100)
-print("Time:", time.time() - start)
-
-# # With POS tag
-# features_set_pos = [({"lemma": lf[0], "pos": lt[1]}, lf[0] == lf[1]) for lf, lt in zip(list_lemma_form, list_lemma_tag)]
-#
-# train_set = features_set_pos[:int(len(features_set_pos)*0.9)]
-# test_set = features_set_pos[len(train_set):]
-#
-# classifier = nltk.NaiveBayesClassifier.train(train_set)
-# print("Classifier accuracy percent (POS):", (nltk.classify.accuracy(classifier, test_set))*100)
-# print("Time:", time.time() - start)
-
-# Bigram
-# Because the Naive Bayes assume the features are independent. So if split the lemma and lemma-1, it's not really bigram at all.
-# features_set_bigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0]}, lemma == forme) for index, (lemma, forme) in enumerate(fl_pairs[1:])]
-features_set_bigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0], "bigram": (fl_pairs[index][0], lemma)}, lemma == forme) for index, (lemma, forme) in enumerate(fl_pairs[1:])]
-train_set = features_set_bigram[:int(len(features_set_bigram)*0.9)]
-test_set = features_set_bigram[len(train_set):]
-
-classifier = nltk.NaiveBayesClassifier.train(train_set)
-
-print("Classifier accuracy percent (Bigram):", (nltk.classify.accuracy(classifier, test_set))*100)
-classifier.show_most_informative_features(5)
-
-print("Time:", time.time() - start)
-
-# Trigram
-# features_set_trigram = [({"lemma": lemma, "lemma-1": fl_pairs[index][0], "lemma-2": fl_pairs[index-1][0]}, lemma==forme) for index, (lemma, forme) in enumerate(fl_pairs[2:])]
-features_set_trigram = [({"lemma": lemma, "trigram": (fl_pairs[index-1][0], fl_pairs[index][0], lemma)}, lemma==forme) for index, (lemma, forme) in enumerate(fl_pairs[2:])]
-train_set = features_set_trigram[:int(len(features_set_trigram)*0.9)]
-test_set = features_set_trigram[len(train_set):]
-
-classifier = nltk.NaiveBayesClassifier.train(train_set)
-
-print("Classifier accuracy percent (Trigram):", (nltk.classify.accuracy(classifier, test_set))*100)
-classifier.show_most_informative_features(5)
-
-print("Time:", time.time() - start)
 
 
 end = time.time()
@@ -174,6 +132,3 @@ print("Total time in seconds:", end - start)
 
 
 pdb.set_trace()
-
-#test_data =
-#test_lemma =
