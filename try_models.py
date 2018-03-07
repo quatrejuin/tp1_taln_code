@@ -1,10 +1,10 @@
 import analyze
 import glob
-import pdb
 import nltk
 import time
 from collections import deque
 from copy import copy
+import code
 
 # Calculate the accuracy by giving the classes result list.
 def cal_accuracy(class_r, test_set):
@@ -98,7 +98,7 @@ for file in list_of_file:
     fl_pairs += analyze.analyze_single_file(file)
 
 start = time.time()
-
+code.interact(local=locals())
 
 features_set = fl_pairs
 train_set, test_set = split_train_test(features_set)
@@ -131,4 +131,4 @@ end = time.time()
 print("Total time in seconds:", end - start)
 
 
-pdb.set_trace()
+code.interact(local=locals())
