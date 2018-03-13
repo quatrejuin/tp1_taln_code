@@ -23,6 +23,32 @@ def splitlemma(line):
     return form, lemma
 
 
+def get_lemma_form_from_file(fname):
+    total_tokens = 0
+    lines = {}
+
+    # Meta info line
+    lines["meta"] = {}
+    # Non-alphabetical tokens
+    lines["non_alpha_form"] = {}
+    fl_pairs = []
+
+    with open(fname, encoding='latin') as file:
+        for index, line in enumerate(file):
+            # Filter out the lines of the begin|end document meta info
+            if bool(re.match("#(?:begin|end)\sdocument", line)):
+                lines["meta"][index] = line
+
+            # Start to count the tokens
+            total_tokens += 1
+
+            form, lemma = splitlemma(line)
+
+            fl_pairs += [(lemma, form)]
+
+    return fl_pairs
+
+
 def analyze_single_file(fname, fixflag=False):
     total_tokens = 0
     lines = {}

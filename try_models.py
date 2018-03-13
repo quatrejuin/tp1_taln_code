@@ -5,6 +5,9 @@ import time
 from collections import deque
 from copy import copy
 import code
+import pdb
+from datetime import datetime
+
 
 # Calculate the accuracy by giving the classes result list.
 def cal_accuracy(class_r, test_set):
@@ -15,37 +18,58 @@ def cal_accuracy(class_r, test_set):
     return correct/len(class_r)
 
 
-# Naive Bayes N-gram
-def try_naive_bayes_ngram(ngram, train_set, test_set):
+# Naive Bayes bigram
+def try_naive_bayes_bigram(train_set_in, test_set):
+    ngram = 2
+    print("len(train_set)= {}, len(test_set)= {}".format(len(train_set_in), len(test_set)))
+    train_set = copy(train_set_in)
     # Dictionary for all the features of each lemma we have seen.
     dict_features_set = {}
     # Dictionary for all the classifier of each lemma we have seen.
     dict_classifier = {}
-    # Prepare the bigram feature set
-    # Gram Window size ngram
-    gram_wnd = deque([""] * ngram, maxlen=ngram)
-    gram_wnd.extend(train_set[:ngram - 1])
-    for (lemma, form) in train_set[ngram - 1:]:
-        if not lemma in dict_features_set:
+
+    bigrams_lemma = list(nltk.bigrams([l for l, f in train_set]))
+    bigrams_lemma = [('', train_set[0][0])]+bigrams_lemma
+
+    bigrams_train_set = list(zip(bigrams_lemma, [f for l, f in train_set]))
+    train_lemma_cfd = nltk.ConditionalFreqDist(train_set)
+    bi_train_cfd_inv = nltk.ConditionalFreqDist([(l, p) for p, l in bigrams_train_set])
+
+    # find and add lemma_{j-1},lemma_j for all form_i correspond to each lemma_i
+    for lemma, listf in train_lemma_cfd.items():
+        if lemma not in dict_features_set:
             dict_features_set[lemma] = []
-        gram_wnd.append(lemma)
-        dict_features_set[lemma] += [({"lemma": lemma, "ngram": tuple(gram_wnd)}, form)]
+        for f in listf:
+            for pair in bi_train_cfd_inv[f]:
+                dict_features_set[lemma] += [({pair[0]:True, pair[1]:True}, f)]*bi_train_cfd_inv[f][pair]
+    print("Start training... N= ", len(dict_features_set))
+    print("Time:", str(datetime.now()))
     # Train for each lemma in the feature set
-    for lemma in dict_features_set:
+    for index, lemma in enumerate(dict_features_set):
+        if index%10000 == 0:
+            print("Index:", index)
+            print("Time:", str(datetime.now()))
         train_set_w = dict_features_set[lemma]
-        dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
+        if lemma not in dict_classifier:
+            dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
     list_result = []
+    print("Test data...")
+    print("Time:", str(datetime.now()))
     # Test the data, do the prediction
     gram_wnd = deque([""] * ngram, maxlen=ngram)
     gram_wnd.extend(test_set[:ngram - 1])
-    for lemma, form in test_set:
+    for index, (lemma, form) in enumerate(test_set):
+        if index%10000 == 0:
+            print("Index:", index)
+            print("Time:", str(datetime.now()))
         gram_wnd.append(lemma)
         if lemma in dict_classifier:
-            list_result += [dict_classifier[lemma].classify({"lemma": lemma, "ngram": tuple(gram_wnd)})]
+            list_result += [dict_classifier[lemma].classify({gram_wnd[0]: True, lemma: True})]
         else:
             list_result += [lemma]
     print("Classifier accuracy percent (Naive Bayes N-gram: n={}): {}".format(ngram, cal_accuracy(list_result,
                                                                                                   test_set) * 100))
+    pdb.set_trace()
 
 
 # Simple max Freq
@@ -90,45 +114,45 @@ def split_train_test(_features_set, ratio = 0.9):
 
 
 
-path = analyze.data_path_dev + 'dev-24'
+path = analyze.data_path_dev + 'dev-24-241'
 list_of_file = sorted(glob.glob(path))
 fl_pairs = []
 
 for file in list_of_file:
-    fl_pairs += analyze.analyze_single_file(file)
+    fl_pairs += analyze.get_lemma_form_from_file(file)
 
 start = time.time()
-code.interact(local=locals())
+
 
 features_set = fl_pairs
 train_set, test_set = split_train_test(features_set)
 
 
+
+
+
 # Start predict lemma = equals
 # Ngram to predict wether the lemma equals to form n=2
-try_le2f_ngram(2, train_set, test_set)
+# try_le2f_ngram(2, train_set, test_set)
 # Ngram to predict wether the lemma equals to form n=3
-try_le2f_ngram(3, train_set, test_set)
+# try_le2f_ngram(3, train_set, test_set)
 # End predict lemma = equals
 
 print("---")
+print("Start Time: ", str(datetime.now()))
 
 # Simple max Freq Unigram
-try_simple_max_freq(train_set, test_set)
+# try_simple_max_freq(train_set, test_set)
 
-# Naive Bayes Unigram
-try_naive_bayes_ngram(1, train_set, test_set)
+
 # Naive Bayes Bigram
-try_naive_bayes_ngram(2, train_set, test_set)
-# Naive Bayes N-gram n=3
-try_naive_bayes_ngram(3, train_set, test_set)
-# Naive Bayes N-gram n=4
-try_naive_bayes_ngram(4, train_set, test_set)
+try_naive_bayes_bigram(train_set, test_set)
+
 
 
 
 end = time.time()
-print("Total time in seconds:", end - start)
+print("End Time:", str(datetime.now()))
 
 
 code.interact(local=locals())
