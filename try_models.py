@@ -4,9 +4,9 @@ import nltk
 import time
 from collections import deque
 from copy import copy
-import code
 import pdb
 from datetime import datetime
+import ujson
 
 
 # Calculate the accuracy by giving the classes result list.
@@ -18,9 +18,8 @@ def cal_accuracy(class_r, test_set):
     return correct/len(class_r)
 
 
-# Naive Bayes bigram
-def try_naive_bayes_bigram(train_set_in, test_set):
-    ngram = 2
+# Naive Bayes ngram
+def try_naive_bayes_ngram(train_set_in, test_set, ngram=2):
     print("len(train_set)= {}, len(test_set)= {}".format(len(train_set_in), len(test_set)))
     train_set = copy(train_set_in)
     # Dictionary for all the features of each lemma we have seen.
@@ -28,25 +27,35 @@ def try_naive_bayes_bigram(train_set_in, test_set):
     # Dictionary for all the classifier of each lemma we have seen.
     dict_classifier = {}
 
+    # extract feature
     bigrams_lemma = list(nltk.bigrams([l for l, f in train_set]))
     bigrams_lemma = [('', train_set[0][0])]+bigrams_lemma
 
-    bigrams_train_set = list(zip(bigrams_lemma, [f for l, f in train_set]))
+    ngrams_lemma = list(nltk.ngrams([l for l, f in train_set],ngram))
+    complete_pair = []
+    for i in range(1, ngram):
+        complete_pair.append(tuple([''] * (ngram - i) + [lf[0] for lf in train_set[:i]]))
+    ngrams_lemma = complete_pair + ngrams_lemma
+
+    labeled_bigrams_train_set = list(zip(ngrams_lemma, [f for l, f in train_set]))
     train_lemma_cfd = nltk.ConditionalFreqDist(train_set)
-    bi_train_cfd_inv = nltk.ConditionalFreqDist([(l, p) for p, l in bigrams_train_set])
+    train_inv = nltk.ConditionalFreqDist([(l, p) for p, l in labeled_bigrams_train_set])
 
     # find and add lemma_{j-1},lemma_j for all form_i correspond to each lemma_i
     for lemma, listf in train_lemma_cfd.items():
         if lemma not in dict_features_set:
             dict_features_set[lemma] = []
         for f in listf:
-            for pair in bi_train_cfd_inv[f]:
-                dict_features_set[lemma] += [({pair[0]:True, pair[1]:True}, f)]*bi_train_cfd_inv[f][pair]
+            for pair in train_inv[f]:
+                if MULTI_VALUE_FEATURE:
+                    dict_features_set[lemma] += [({"lemma"+str(i): p for i, p in enumerate(pair)}, f)] * train_inv[f][pair]
+                else:
+                    dict_features_set[lemma] += [({p: True for p in pair[:ngram]}, f)]*train_inv[f][pair]
     print("Start training... N= ", len(dict_features_set))
     print("Time:", str(datetime.now()))
     # Train for each lemma in the feature set
     for index, lemma in enumerate(dict_features_set):
-        if index%10000 == 0:
+        if index % 10000 == 0:
             print("Index:", index)
             print("Time:", str(datetime.now()))
         train_set_w = dict_features_set[lemma]
@@ -59,20 +68,25 @@ def try_naive_bayes_bigram(train_set_in, test_set):
     gram_wnd = deque([""] * ngram, maxlen=ngram)
     gram_wnd.extend(test_set[:ngram - 1])
     for index, (lemma, form) in enumerate(test_set):
-        if index%10000 == 0:
+        if index % 10000 == 0:
             print("Index:", index)
             print("Time:", str(datetime.now()))
         gram_wnd.append(lemma)
         if lemma in dict_classifier:
-            list_result += [dict_classifier[lemma].classify({gram_wnd[0]: True, lemma: True})]
+            if MULTI_VALUE_FEATURE:
+                list_result += [dict_classifier[lemma].classify({"lemma"+str(i): p for i, p in enumerate(gram_wnd)})]
+            else:
+                list_result += [dict_classifier[lemma].classify({gram_wnd[i]: True for i, x in enumerate(gram_wnd)})]
         else:
             list_result += [lemma]
     print("Classifier accuracy percent (Naive Bayes N-gram: n={}): {}".format(ngram, cal_accuracy(list_result,
-                                                                                                  test_set) * 100))
+                                                                                                test_set) * 100))
+    ujson.dump(list_result, open('/Users/jason.wu/Downloads/list_result_ngram.json', 'w'))
+    ujson.dump(test_set, open('/Users/jason.wu/Downloads/test_set_ngram.json', 'w'))
     pdb.set_trace()
 
 
-# Simple max Freq
+# Simple MLE
 def try_simple_max_freq(train_set, test_set):
     cfd = nltk.ConditionalFreqDist(train_set)
     pred_class = []
@@ -85,9 +99,8 @@ def try_simple_max_freq(train_set, test_set):
     print("Classifier accuracy percent (Simple max Freq):", cal_accuracy(pred_class, test_set) * 100)  # About 78%
 
 
-
 # Ngram to predict wether the lemma equals to form
-def try_le2f_ngram(ngram, train_set, test_set):
+def try_leqf_ngram(train_set, test_set, ngram=2):
     gram_wnd = deque([""] * ngram, maxlen=ngram)
     gram_wnd.extend(train_set[:ngram - 1])
     train_set_f = []
@@ -107,52 +120,50 @@ def try_le2f_ngram(ngram, train_set, test_set):
 
 
 # Split train and test data for the given raio
-def split_train_test(_features_set, ratio = 0.9):
+def split_train_test(_features_set, ratio=0.9):
     _train_set = _features_set[:int(len(_features_set) * ratio)]
     _test_set = _features_set[len(_train_set):]
     return _train_set, _test_set
 
 
+def demo():
+    global list_of_file, fl_pairs
+    for file in list_of_file:
+        fl_pairs += analyze.get_lemma_form_from_file(file)
 
-path = analyze.data_path_dev + 'dev-24-241'
+    start = time.time()
+
+    features_set = fl_pairs
+    train_set, test_set = split_train_test(features_set)
+
+    # Start predict lemma = equals
+    #try_leqf_ngram(train_set, test_set, 1)
+    # Ngram to predict wether the lemma equals to form n=2
+    #try_leqf_ngram(train_set, test_set, 2)
+    # Ngram to predict wether the lemma equals to form n=3
+    #try_leqf_ngram(train_set, test_set, 3)
+    # End predict lemma = equals
+
+    print("---")
+    print("Start Time: ", str(datetime.now()))
+
+    # Simple max Freq Unigram
+    #try_simple_max_freq(train_set, test_set)
+
+    # Naive Bayes ngram n=2
+    try_naive_bayes_ngram(train_set, test_set, 2)
+
+    end = time.time()
+    print("End Time:", str(datetime.now()))
+
+
+# File name should be defined here, otherwise it tackle all the files in the folder
+path = analyze.data_path_dev + 'dev-24'
 list_of_file = sorted(glob.glob(path))
 fl_pairs = []
+MULTI_VALUE_FEATURE = True
 
-for file in list_of_file:
-    fl_pairs += analyze.get_lemma_form_from_file(file)
+if __name__ == '__main__':
+    demo()
 
-start = time.time()
-
-
-features_set = fl_pairs
-train_set, test_set = split_train_test(features_set)
-
-
-
-
-
-# Start predict lemma = equals
-# Ngram to predict wether the lemma equals to form n=2
-# try_le2f_ngram(2, train_set, test_set)
-# Ngram to predict wether the lemma equals to form n=3
-# try_le2f_ngram(3, train_set, test_set)
-# End predict lemma = equals
-
-print("---")
-print("Start Time: ", str(datetime.now()))
-
-# Simple max Freq Unigram
-# try_simple_max_freq(train_set, test_set)
-
-
-# Naive Bayes Bigram
-try_naive_bayes_bigram(train_set, test_set)
-
-
-
-
-end = time.time()
-print("End Time:", str(datetime.now()))
-
-
-code.interact(local=locals())
+pdb.set_trace()

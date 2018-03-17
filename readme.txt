@@ -1,0 +1,5 @@
+- Analyze.py is in charge of reading file and parse the (lemma,form) pairs.
+- try_models.py apply the models.
+    - try_leqf_ngram(train_set, test_set)        :  Try the lemma == form prediction
+    - try_simple_max_freq(train_set, test_set)   :  Try the MLE unigram prediction
+    - try_naive_bayes_ngram(train_set, test_set) :  Try the NB ngram prediction

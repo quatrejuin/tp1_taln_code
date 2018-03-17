@@ -8,10 +8,6 @@ import pdb
 import json    # For print dictionary
 import sys
 
-if len(sys.argv) > 1:
-    # Define the data path
-    data_path_dev = sys.argv[1]
-
 
 # Input a line
 # Output (Forme,Lemma) pair
@@ -148,9 +144,13 @@ def analyze_single_file(fname, fixflag=False):
     # pdb.set_trace()
 
 
-# path = data_path_dev + 'dev-24'
-# list_of_file = sorted(glob.glob(path))
-# for file in list_of_file:
-#     analyze_single_file(file)
+if len(sys.argv) > 1:
+    # Define the data path
+    data_path_dev = sys.argv[1]
 
-
+if __name__ == '__main__':
+    # File name should be defined here, otherwise it tackle all the files in the folder
+    path = data_path_dev + 'dev-24'
+    list_of_file = sorted(glob.glob(path))
+    for file in list_of_file:
+        analyze_single_file(file)
