@@ -1,3 +1,8 @@
+# Try models
+# wujiechen@gmail.com
+# 2018-03-01
+#
+
 import analyze
 import glob
 import nltk
