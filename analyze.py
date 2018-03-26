@@ -147,6 +147,35 @@ def analyze_single_file(fname, fixflag=False):
     # pdb.set_trace()
 
 
+def read_test_file(fname):
+    total_tokens = 0
+    lines = {}
+
+    # Form-Lemma pairs
+    fl_pairs = []
+
+
+    with open(fname, encoding='latin') as file:
+        for index, line in enumerate(file):
+            # Filter out the lines of the begin|end document meta info
+            if bool(re.match("#(?:begin|end)\sdocument", line)):
+                continue
+
+            if '\t' in line:
+                form, lemma = splitlemma(line)
+                lemma = lemma.strip()
+            else:
+                lemma = line.strip()
+                form = ''
+
+
+            fl_pairs += [(lemma, form)]
+
+    return fl_pairs
+
+
+
+
 if len(sys.argv) > 1:
     # Define the data path
     data_path_dev = sys.argv[1]

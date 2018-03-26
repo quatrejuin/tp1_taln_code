@@ -12,6 +12,7 @@ from copy import copy
 import pdb
 from datetime import datetime
 import ujson
+import pickle
 
 
 # Calculate the accuracy by giving the classes result list.
@@ -21,6 +22,37 @@ def cal_accuracy(class_r, test_set):
         if c == test_set[index][1]:
             correct += 1
     return correct/len(class_r)
+
+
+def naive_bayes_ngram_train(labeled_features,ngram=2):
+    dict_classifier = {}
+    for index, lemma in enumerate(labeled_features):
+        if index % 10000 == 0:
+            print("Index:", index)
+            print("Time:", str(datetime.now()))
+        train_set_w = labeled_features[lemma]
+        if lemma not in dict_classifier:
+            dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
+    return dict_classifier
+
+
+def naive_bayes_ngram_classify(dict_classifier, test_features, ngram=2):
+    list_result = []
+    gram_wnd = deque([""] * ngram, maxlen=ngram)
+    gram_wnd.extend(test_features[:ngram - 1])
+    for index, lemma in enumerate(test_features):
+        if index % 10000 == 0:
+            print("Index:", index)
+            print("Time:", str(datetime.now()))
+        gram_wnd.append(lemma)
+        if lemma in dict_classifier:
+            if MULTI_VALUE_FEATURE:
+                list_result += [dict_classifier[lemma].classify({"lemma" + str(i): p for i, p in enumerate(gram_wnd)})]
+            else:
+                list_result += [dict_classifier[lemma].classify({gram_wnd[i]: True for i, x in enumerate(gram_wnd)})]
+        else:
+            list_result += [lemma]
+    return list_result
 
 
 # Naive Bayes ngram
@@ -59,36 +91,19 @@ def try_naive_bayes_ngram(train_set_in, test_set, ngram=2):
     print("Start training... N= ", len(dict_features_set))
     print("Time:", str(datetime.now()))
     # Train for each lemma in the feature set
-    for index, lemma in enumerate(dict_features_set):
-        if index % 10000 == 0:
-            print("Index:", index)
-            print("Time:", str(datetime.now()))
-        train_set_w = dict_features_set[lemma]
-        if lemma not in dict_classifier:
-            dict_classifier[lemma] = nltk.NaiveBayesClassifier.train(train_set_w)
-    list_result = []
+    dict_classifier = naive_bayes_ngram_train(dict_features_set)
+
+
     print("Test data...")
     print("Time:", str(datetime.now()))
     # Test the data, do the prediction
-    gram_wnd = deque([""] * ngram, maxlen=ngram)
-    gram_wnd.extend(test_set[:ngram - 1])
-    for index, (lemma, form) in enumerate(test_set):
-        if index % 10000 == 0:
-            print("Index:", index)
-            print("Time:", str(datetime.now()))
-        gram_wnd.append(lemma)
-        if lemma in dict_classifier:
-            if MULTI_VALUE_FEATURE:
-                list_result += [dict_classifier[lemma].classify({"lemma"+str(i): p for i, p in enumerate(gram_wnd)})]
-            else:
-                list_result += [dict_classifier[lemma].classify({gram_wnd[i]: True for i, x in enumerate(gram_wnd)})]
-        else:
-            list_result += [lemma]
+    list_result = naive_bayes_ngram_classify(dict_classifier, [x for x, y in test_set])
+
     print("Classifier accuracy percent (Naive Bayes N-gram: n={}): {}".format(ngram, cal_accuracy(list_result,
                                                                                                 test_set) * 100))
     ujson.dump(list_result, open('/Users/jason.wu/Downloads/list_result_ngram.json', 'w'))
     ujson.dump(test_set, open('/Users/jason.wu/Downloads/test_set_ngram.json', 'w'))
-    pdb.set_trace()
+    return list_result
 
 
 # Simple MLE
@@ -162,6 +177,32 @@ def demo():
     print("End Time:", str(datetime.now()))
 
 
+def test_5_secret_files():
+
+    test_file = "/Users/jason.wu/Desktop/IFT6285-NLP/TP1/5secrets/blind-999"
+
+    test_set = analyze.read_test_file(test_file)
+
+    print("---")
+    print("Start Time: ", str(datetime.now()))
+
+    # Load the classifier
+    dict_classifier = pickle.load(open('/Users/jason.wu/Desktop/IFT6285-NLP/TP1/result/classifier_dev_24_241.pickle', 'rb'))
+    print('Classifier loaded. Time:', time.ctime())
+
+    print("len(test_set)= {}".format(len(test_set)))
+
+    resultat = naive_bayes_ngram_classify(dict_classifier, [x for x, y in test_set])
+
+    result_pair = zip(resultat, [l for l, f in test_set])
+
+    end = time.time()
+    with open(test_file+'_result', 'w', encoding='latin') as r_file:
+        for f, l in result_pair:
+            r_file.writelines('{}\t{}\n'.format(f, l))
+    print("End Time:", str(datetime.now()))
+
+
 # File name should be defined here, otherwise it tackle all the files in the folder
 path = analyze.data_path_dev + 'dev-24'
 list_of_file = sorted(glob.glob(path))
@@ -169,6 +210,6 @@ fl_pairs = []
 MULTI_VALUE_FEATURE = True
 
 if __name__ == '__main__':
-    demo()
+    test_5_secret_files()
 
 pdb.set_trace()
