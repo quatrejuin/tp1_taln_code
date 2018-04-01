@@ -103,6 +103,7 @@ def try_naive_bayes_ngram(train_set_in, test_set, ngram=2):
                                                                                                 test_set) * 100))
     ujson.dump(list_result, open('/Users/jason.wu/Downloads/list_result_ngram.json', 'w'))
     ujson.dump(test_set, open('/Users/jason.wu/Downloads/test_set_ngram.json', 'w'))
+    pickle.dump(dict_classifier, open('/Users/jason.wu/Downloads/classifier.pickle', 'wb'))
     return list_result
 
 
